@@ -2,8 +2,8 @@ from dash import Dash, dcc, Output, Input, State, html, no_update, ctx, dash_tab
 import dash_bootstrap_components as dbc   
 import numpy as np
 import pandas as pd
-from utility_functions import parse_content, generate_plot, popt_to_str, best_fit_to_df
-from data_analysis import fit_curve, gaussian, reconstruct_gaussian, fit_complex_model, build_complex_model
+from utility_functions import parse_content, generate_plot, popt_to_str
+from data_analysis import fit_complex_model, build_complex_model
 import plotly.graph_objects as go
 
 data = {}
@@ -435,4 +435,4 @@ def on_click_save_data(_, filename, subfile, data):
 
 # Run app
 if __name__=='__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
