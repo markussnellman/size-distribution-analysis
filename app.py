@@ -10,6 +10,7 @@ data = {}
 
 # Components
 app = Dash(__name__, external_stylesheets=[dbc.themes.JOURNAL], prevent_initial_callbacks="initial_duplicate")
+server = app.server
 title = dcc.Markdown(children='# Size distribution analysis')
 main_graph = dcc.Graph(figure={})
 upload = dcc.Upload(
