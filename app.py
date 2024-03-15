@@ -493,4 +493,4 @@ def on_click_save_data(_, filename, subfile, data):
 
 # Run app
 if __name__=='__main__':
-    app.run_server(debug=True) # Set to False when committing to GitHub
+    app.run_server(debug=False) # Set to False when committing to GitHub

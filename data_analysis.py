@@ -3,6 +3,8 @@ import numpy as np
 from scipy.optimize import curve_fit
 import lmfit
 from lmfit.models import GaussianModel, LognormalModel
+from scipy.interpolate import CubicSpline, UnivariateSpline, interp1d, splrep, BSpline
+from scipy.signal import find_peaks
 import pandas as pd
 
 def build_complex_model(input):
@@ -61,6 +63,13 @@ def build_complex_model(input):
         return model, str(e)
 
     return model, "Success"
+
+def build_autofit_model(x, y):
+    """
+    Builds autofit model. Not yet implemented.
+    """
+    pass
+
 
 def fit_complex_model(x, y, model):
     """
@@ -126,39 +135,12 @@ if __name__=="__main__":
     args = [1, 1, 1, 0.5, 5, 0.5]
     y = gaussian(x, *args) + 0.1 * (np.random.rand(len(x)) - 0.5)
 
-    input_string = "normal, 1, 1, 1, normal, 0.5, 5, 0.5"
-    model = build_complex_model(input_string)
+    peaks, _ = find_peaks(y, distance=5, width=5)
 
-    best_fit, components, best_args = fit_complex_model(x, y, model) # does not return components!
-    # print(best_args)
-    # fig, ax = plt.subplots(1, 1)
-    # ax.plot(x, y, 'o')
-    # ax.plot(x, best_fit)
-    # plt.show()
-
-    # df = pd.DataFrame({'Best fit': best_fit}.update(components))
-    # print(df)
+    fig, ax = plt.subplots(1, 1)
     
-    result = {'Best fit': best_fit}
-    result.update(components)
-    print(result)
+    ax.plot(y, 'o')
+    ax.plot(peaks, y[peaks], '*')
 
-
-    # opt_args = fit_curve(x, y, gaussian, args)
-    # best_fits = reconstruct_gaussian(x, *opt_args)
-
-    # print(best_fits)
-    # sum_best_fits = np.sum(best_fits, axis=1)
-
-    # # Plot raw data
-    # fig, ax = plt.subplots()
-    # ax.plot(x, y, 'o')
-
-    # # Plot individual components
-    # for i in range(best_fits.shape[1]):
-    #     ax.plot(x, best_fits[:, i])
-
-    # # Plot sum of components
-    # ax.plot(x, sum_best_fits)
-    # plt.show()
+    plt.show()
 

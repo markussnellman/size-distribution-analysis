@@ -10,7 +10,7 @@ type_1, param_1, param_2, ... , param_n, type_2, param_1, param_2, ... param_n, 
 
 Supported types: "norm"/"normal" (Gaussian) and "log" (Lognormal)
 
-Params: Both normal and log have amplitude, center (mean/geometric mean) and sigma (standard deviation/geometric standard deviation). These are provided as numbers. Note that GSD is strictly larger than 0.
+Params: Both normal and log have amplitude, center (mean/geometric mean) and sigma (standard deviation/geometric standard deviation). These are provided as numbers. Note that GSD needs to be strictly larger than 1.
 
 Example input (note the difference between log and normal): log, 2e7, 30, 1.4, norm, 5000000, 68, 2
 
