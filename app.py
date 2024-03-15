@@ -42,6 +42,18 @@ table = dash_table.DataTable(
 
 file_dropdown = dcc.Dropdown({}, [], id='file-dropdown', style={'margin-bottom': '10px'})
 subfile_dropdown = dcc.Dropdown({}, [], id='subfile-dropdown', style={'margin-bottom': '10px'})
+instructions_modal = dbc.Modal(
+            [
+                dbc.ModalHeader(dbc.ModalTitle("Curve fit instructions")),
+                dbc.ModalBody("The curve fit can fit an arbitrary number of modes and accepts comma separated parameters on the form\nfunction_1, param_1, ..., param_2, function_2...\n\nThe currently supported functions are normal and lognormal which both takes params amplitude, center (GMD for lognormal), and sigma (GSD for lognormal). The better the guess, the better the fit. Note that GSD needs to be strictly larger than 1.\n\nExample input: normal, 10000, 20, 1, log, 1e7, 30, 1.5."),
+                dbc.ModalFooter(
+                    html.Button("Close", id="close-modal", n_clicks=0)
+                ),
+            ],
+            id="instructions-modal",
+            is_open=False,
+            size='xl',
+        )
 fit_params_input = dcc.Input(id='fit-params', type='text', placeholder='CS input pars', style={'margin-left': '20px'})
 curve_fit_dropdown = dcc.Dropdown({}, [], id='curve-fit-dropdown', style={'margin-bottom': '10px'})
 
@@ -49,6 +61,7 @@ curve_fit_dropdown = dcc.Dropdown({}, [], id='curve-fit-dropdown', style={'margi
 app.layout = dbc.Container([title, 
                             dcc.Checklist(['Log X', 'Log Y'], inline=True, id='log-check'),
                             main_graph, 
+                            html.Button("Remove plots", id="remove-plots", n_clicks=0),
                             upload, 
                             status_div, 
                             html.H3("Data"),
@@ -68,18 +81,19 @@ app.layout = dbc.Container([title,
                                     ),
                                 ]
                                 ),
-                            html.Button('Plot/Remove plot', id='plot-data-btn', n_clicks=0), 
+                            html.Button('Plot/Remove plot', id='plot-data-btn', n_clicks=0, style={'margin-right': '10px'}), 
+                            html.Button('Curve fit instructions', id='instructions-btn', style={'margin-right': '0px'}),
+                            instructions_modal,
                             fit_params_input,
                             html.Button('Curve fit', id='curve-fit-btn', n_clicks=0), 
                             html.H3("Best fit curves"), 
                             curve_fit_dropdown, 
-                            html.Button('Plot/Remove plot', id='plot-fit-btn', n_clicks=0), 
+                            html.Button('Plot/Remove plot', id='plot-fit-btn', n_clicks=0, style={'margin-right': '10px'}), 
                             html.Button("Save data", id='save-btn', n_clicks=0),
                             dcc.Download(id="download"), # Invisible Save Link
                             dcc.Store(id='data-store', data={'plotted': [], 'dataframes': {}, 'best_fit_params': {}})])
 
 # Callbacks
-
 @app.callback(Output('file-dropdown', 'options'),
             Input('upload-data', 'filename'),
             Input('file-dropdown', 'options'),
@@ -243,6 +257,25 @@ def update_graph_on_click(selected_dataset, clicks, data, trace, logstate):
     return no_update, data
 
 
+@app.callback(Output(main_graph, component_property='figure', allow_duplicate=True),
+              Output('data-store', 'data'),
+              Input('remove-plots', 'n_clicks'),
+              State('data-store', 'data'),
+              State('log-check', 'value'),
+              prevent_inital_call=True)
+def on_click_remove_plots(clicks, data, logstate):
+    if clicks > 0 and 'remove-plots' == ctx.triggered_id:
+        plotted_datasets_list = []
+        data['plotted'] = plotted_datasets_list
+        if logstate is not None: 
+            updated_figure = generate_plot(plotted_datasets_list, data['dataframes'], logstate)
+        else:
+            updated_figure = generate_plot(plotted_datasets_list, data['dataframes'], [])
+        return updated_figure, data
+    else:
+        return no_update, no_update
+
+
 @app.callback(
         Output(main_graph, component_property='figure', allow_duplicate=True),
         Input('log-check', 'value'),
@@ -272,9 +305,11 @@ def log_check(values, figure):
     else:
         return no_update
     
-
+# html.Div(['File type needs to be TDMS or an SMPS txt.'])
+# 
 @app.callback(Output('data-store', 'data', allow_duplicate=True),
               Output('fit-params', 'value'),
+              Output('output-data-upload', 'children', allow_duplicate=True),
               Input('curve-fit-btn', 'n_clicks'),
               Input('file-dropdown', 'value'),
               State('subfile-dropdown', 'value'),
@@ -283,48 +318,70 @@ def log_check(values, figure):
               prevent_inital_call=True)
 def on_click_fit_curve(n_clicks, filename, trace, data, params):
     # Check input is ok
-    if isinstance(filename, str) and n_clicks > 0 and 'curve-fit-btn' == ctx.triggered_id:
+    if isinstance(filename, str) and n_clicks > 0 and 'curve-fit-btn' == ctx.triggered_id and params is not None:
         
         if len(params.split(',')) % 4 == 0:
             print(f"Fitting curve with {params}")
-            model = build_complex_model(params)
+            model, status = build_complex_model(params)
+            print(status)
 
-            # Load the dataframe and extract x, y data
-            dataframes = data['dataframes']
+            if status == "Success":
+                # Load the dataframe and extract x, y data
+                dataframes = data['dataframes']
 
-            if "SMPS" in filename and isinstance(trace, str):
-                filename = trace
+                if "SMPS" in filename and isinstance(trace, str):
+                    filename = trace
+                
+                if "SMPS" in filename and isinstance(trace, str) is False:
+                    # This is if the user has forgotten to choose a trace, if there are traces
+                    return no_update, no_update
+
+                df = pd.read_json(dataframes[filename], orient='split')
+                # 0 th column = diameter, 1 st column = concentration
+                x = np.array(df[df.columns[0]])
+                y = np.array(df[df.columns[1]])
+
+                # This is to handle exception if the model could not be fit, which can be the case
+                # for difficult data and many assumed modes
+                try:
+                    # Fit the model
+                    best_fit, components, popt = fit_complex_model(x, y, model)
+                    
+                    # Add best fit parameters to data store
+                    data['best_fit_params'][filename] = popt
+
+                    # Convert best fit + components to dataframe and add to data store 
+                    columns = {df.columns[0] : x, 'Best fit': best_fit}
+                    # If there are 2 or more functions making up the fit
+                    # add them
+                    if len(components.keys()) > 1:
+                        columns.update(components)
+                    df_components = pd.DataFrame(columns)
+                    data['dataframes'][filename + '_best_fit'] = df_components.to_json(date_format='iso', orient='split')
+
+                    # Return data and optimal parameters    
+                    return data, "", html.Div(['Succesfully fitted model.'])
+                
+                except Exception as e:
+                    return no_update, no_update, html.Div([str(e)])
             
-            if "SMPS" in filename and isinstance(trace, str) is False:
-                # This is if the user has forgotten to choose a trace, if there are traces
-                return no_update, no_update
-
-            df = pd.read_json(dataframes[filename], orient='split')
-            # 0 th column = diameter, 1 st column = concentration
-            x = np.array(df[df.columns[0]])
-            y = np.array(df[df.columns[1]])
-
-            # Fit the model
-            best_fit, components, popt = fit_complex_model(x, y, model)
+            else:
+                return no_update, no_update, html.Div([status])
             
-            # Add best fit parameters to data store
-            data['best_fit_params'][filename] = popt
-
-            # Convert best fit + components to dataframe and add to data store 
-            columns = {df.columns[0] : x, 'Best fit': best_fit}
-            # If there are 2 or more functions making up the fit
-            # add them
-            if len(components.keys()) > 1:
-                columns.update(components)
-            df_components = pd.DataFrame(columns)
-            data['dataframes'][filename + '_best_fit'] = df_components.to_json(date_format='iso', orient='split')
-
-            # Return data and optimal parameters    
-            return data, ""
+        return no_update, no_update, html.Div(['Wrong input shape.'])
         
-        return no_update, no_update
-        
-    return no_update, no_update
+    return no_update, no_update, no_update
+
+
+@app.callback(
+    Output("instructions-modal", "is_open"),
+    [Input("instructions-btn", "n_clicks"), Input("close-modal", "n_clicks")],
+    [State("instructions-modal", "is_open")],
+)
+def toggle_modal(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
 
 
 @app.callback(Output('curve-fit-dropdown', 'options'),
@@ -436,4 +493,4 @@ def on_click_save_data(_, filename, subfile, data):
 
 # Run app
 if __name__=='__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True) # Set to False when committing to GitHub

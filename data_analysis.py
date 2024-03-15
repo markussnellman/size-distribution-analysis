@@ -25,36 +25,42 @@ def build_complex_model(input):
     n_log = 1
     n_normal = 1
     
-    for i in range(0, len(input_list), 4):
-        if "log" in input_list[i]:
-            if i == 0:
-                model = LognormalModel(prefix=f"log_{n_log}_")
-                model.set_param_hint('amplitude', value=float(input_list[i + 1]), vary=True, min=0)
-                model.set_param_hint('center', value=float(input_list[i + 2]), vary=True, min=0, max=5.3) 
-                model.set_param_hint('sigma', value=float(input_list[i + 3]), vary=True, min=0.3, max=1.6)
-            else:
-                log = LognormalModel(prefix=f"log_{n_log}_")
-                log.set_param_hint('amplitude', value=float(input_list[i + 1]), vary=True, min=0)
-                log.set_param_hint('center', value=float(input_list[i + 2]), vary=True, min=0, max=5.3) # Max 5.3 is about 200 nm
-                log.set_param_hint('sigma', value=float(input_list[i + 3]), vary=True, min=0.3, max=1.6) # Max 1.6 is reasonable for GSD
-                model += log
-            n_log += 1
-        
-        if "norm" in input_list[i]:
-            if i == 0:
-                model = GaussianModel(prefix=f"norm_{n_normal}_")
-                model.set_param_hint('amplitude', value=float(input_list[i + 1]), vary=True, min=0, max=50000000)
-                model.set_param_hint('center', value=float(input_list[i + 2]), vary=True, min=0, max=150)
-                model.set_param_hint('sigma', value=float(input_list[i + 3]), vary=True, min=0.1, max=30)
-            else: 
-                normal = GaussianModel(prefix=f"norm_{n_normal}_")
-                normal.set_param_hint('amplitude', value=float(input_list[i + 1]), vary=True, min=0, max=50000000)
-                normal.set_param_hint('center', value=float(input_list[i + 2]), vary=True, min=0, max=150)
-                normal.set_param_hint('sigma', value=float(input_list[i + 3]), vary=True, min=0.1, max=20)
-                model += normal
-            n_normal+=1
+    try:
+        for i in range(0, len(input_list), 4):
+            if "log" in input_list[i]:
+                if i == 0:
+                    model = LognormalModel(prefix=f"log_{n_log}_")
+                    model.set_param_hint('amplitude', value=float(input_list[i + 1]), vary=True, min=0)
+                    model.set_param_hint('center', value=np.log(float(input_list[i + 2])), vary=True, min=0, max=5.3) 
+                    model.set_param_hint('sigma', value=np.log(float(input_list[i + 3])), vary=True, min=0.3, max=1.6)
+                else:
+                    log = LognormalModel(prefix=f"log_{n_log}_")
+                    log.set_param_hint('amplitude', value=float(input_list[i + 1]), vary=True, min=0)
+                    log.set_param_hint('center', value=np.log(float(input_list[i + 2])), vary=True, min=0, max=5.3) # Max 5.3 is about 200 nm
+                    log.set_param_hint('sigma', value=np.log(float(input_list[i + 3])), vary=True, min=0.3, max=1.6) # Max 1.6 is reasonable for GSD
+                    model += log
+                n_log += 1
+            
+            if "norm" in input_list[i]:
+                if i == 0:
+                    model = GaussianModel(prefix=f"norm_{n_normal}_")
+                    model.set_param_hint('amplitude', value=float(input_list[i + 1]), vary=True, min=0, max=100000000)
+                    model.set_param_hint('center', value=float(input_list[i + 2]), vary=True, min=0, max=150)
+                    model.set_param_hint('sigma', value=float(input_list[i + 3]), vary=True, min=0.1, max=30)
+                else: 
+                    normal = GaussianModel(prefix=f"norm_{n_normal}_")
+                    normal.set_param_hint('amplitude', value=float(input_list[i + 1]), vary=True, min=0, max=100000000)
+                    normal.set_param_hint('center', value=float(input_list[i + 2]), vary=True, min=0, max=150)
+                    normal.set_param_hint('sigma', value=float(input_list[i + 3]), vary=True, min=0.1, max=20)
+                    model += normal
+                n_normal+=1
 
-    return model
+            print(input_list)
+    
+    except Exception as e:
+        return model, str(e)
+
+    return model, "Success"
 
 def fit_complex_model(x, y, model):
     """

@@ -10,9 +10,9 @@ type_1, param_1, param_2, ... , param_n, type_2, param_1, param_2, ... param_n, 
 
 Supported types: "norm"/"normal" (Gaussian) and "log" (Lognormal)
 
-Params: Both normal and log have amplitude, center (mean) and sigma (standard deviation). These are provided as numbers. NB! Log center and sigma are the natural logarithms of GMD and GSD.
+Params: Both normal and log have amplitude, center (mean/geometric mean) and sigma (standard deviation/geometric standard deviation). These are provided as numbers. Note that GSD is strictly larger than 0.
 
-Example input (note the difference between log and normal): log, 20000000, 3, 0.4, norm, 5000000, 68, 2
+Example input (note the difference between log and normal): log, 2e7, 30, 1.4, norm, 5000000, 68, 2
 
 4. If curve fitting is succesful, the best fit params are in the bottom dropdown. Fitting a new function will override them. They can be plotted like the regular data.
 5. To save data including best fits, just select the dataset and click save.
